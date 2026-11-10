@@ -1,0 +1,31 @@
+{
+  "name": "示例：管培生",
+  "jobId": "在这里填你的职位ID",
+  "salary": "在这里填薪资范围",
+  "department": "在这里填部门",
+  "targetGreet": 100,
+  
+  "hardFilters": {
+    "mustGradYear": 2027,
+    "excludeOverseas": false,
+    "excludeNegation": true
+  },
+  
+  "preferences": {
+    "preferTopSchool": true
+  },
+  
+  "excludeKeywords": [
+    "不考虑",
+    "暂不考虑"
+  ],
+  
+  "notes": "在这里写这个岗位的筛选标准说明",
+  
+  "progress": {
+    "greeted": 0,
+    "replied": 0,
+    "interview": 0,
+    "offer": 0
+  }
+}

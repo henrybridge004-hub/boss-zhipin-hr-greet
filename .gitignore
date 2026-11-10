@@ -1,0 +1,26 @@
+# 用户自己的配置（不上传）
+config/jobs/*_real.json
+
+# 输出文件
+output/
+logs/
+greet-log.txt
+
+# 临时脚本（逆向参数、调试用）
+reverse-*.js
+try-*.js
+inject-*.js
+read-logs.js
+capture-*.js
+check-page.js
+go-recommend.js
+wait-*.js
+find-*.js
+fetch-all-jobs.js
+fetch-job-list.js
+navigate.js
+
+# 系统文件
+.DS_Store
+Thumbs.db
+node_modules/
