@@ -46,11 +46,11 @@ async function greetCandidate(candidate) {
 }
 
 /**
- * 随机等待
+ * 随机等待（安全模式：10-15秒，模拟真人思考时间）
  * @param {number} minMs 最小间隔（毫秒）
  * @param {number} maxMs 最大间隔（毫秒）
  */
-async function randomWait(minMs = 2000, maxMs = 5000) {
+async function randomWait(minMs = 10000, maxMs = 15000) {
   const wait = minMs + Math.floor(Math.random() * (maxMs - minMs));
   await new Promise(r => setTimeout(r, wait));
   return wait;

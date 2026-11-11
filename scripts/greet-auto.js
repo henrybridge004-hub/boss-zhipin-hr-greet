@@ -1,6 +1,6 @@
 /**
  * 自动打招呼
- * 用法：node scripts/greet-auto.js --job 岗位名 --count 10
+ * 用法：node scripts/greet-auto.js --job 岗位名 --count 5
  */
 const fs = require('fs');
 const path = require('path');
@@ -15,10 +15,10 @@ function getArg(name, def) {
 }
 
 const jobName = getArg('job', '');
-const target = parseInt(getArg('count', '10'));
+const target = parseInt(getArg('count', '5')); // 默认每次5个（安全模式）
 
 if (!jobName) {
-  console.error('请指定岗位名：node scripts/greet-auto.js --job 你的岗位名 --count 10');
+  console.error('请指定岗位名：node scripts/greet-auto.js --job 你的岗位名 --count 5');
   process.exit(1);
 }
 
@@ -92,8 +92,8 @@ function isWorthGreeting(candidate, config) {
           console.log(` ✗ ${result.message}`);
         }
         
-        // 随机间隔2-5秒
-        await randomWait(2000, 5000);
+        // 随机间隔10-15秒（安全模式，模拟真人思考时间）
+        await randomWait(10000, 15000);
       }
       
       page++;
