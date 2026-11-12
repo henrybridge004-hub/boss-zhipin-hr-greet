@@ -3,19 +3,36 @@
  */
 const { evalOnPage } = require('./cdp');
 
-/**
- * 给单个候选人打招呼
- * @param {object} candidate 候选人对象（需要包含encryptGeekId等字段）
- * @returns {Promise<{success: boolean, code: number, message: string}>}
- */
+// 风控类错误码（遇到这些立刻停止，避免火上浇油）
+const RISK_CODES = new Set([
+  1001,   // 账号异常/被限制
+  1002,   // 需要验证
+  4001,   // 权限不足
+  4003,   // 禁止操作
+  403,    // 禁止
+]);
+
+function isRiskCode(code) {
+  return RISK_CODES.has(Number(code));
+}
+
 async function greetCandidate(candidate) {
+  if (!candidate.encryptGeekId || !candidate.expectId) {
+    return {
+      success: false,
+      code: -2,
+      message: '候选人缺少打招呼必需的字段',
+      isRisk: false
+    };
+  }
+
   const js = `(async()=>{
     const pd=new URLSearchParams({
       gid:'${candidate.encryptGeekId}',
-      jid:'${candidate.encryptJobId}',
+      jid:'${candidate.encryptJobId || ''}',
       expectId:'${candidate.expectId}',
-      lid:'${candidate.lid}',
-      securityId:'${candidate.securityId}'
+      lid:'${candidate.lid || ''}',
+      securityId:'${candidate.securityId || ''}'
     });
     const r=await fetch('/wapi/zpjob/chat/start',{
       method:'POST',
@@ -30,26 +47,23 @@ async function greetCandidate(candidate) {
   try {
     const result = await evalOnPage(js);
     const data = JSON.parse(result);
-    
+    const code = Number(data.code);
     return {
-      success: Number(data.code) === 0,
-      code: data.code,
-      message: data.message || (Number(data.code) === 0 ? '成功' : '失败')
+      success: code === 0,
+      code: code,
+      message: data.message || (code === 0 ? '成功' : '失败'),
+      isRisk: isRiskCode(code)
     };
   } catch (e) {
     return {
       success: false,
       code: -1,
-      message: e.message.slice(0, 100)
+      message: e.message.slice(0, 100),
+      isRisk: false
     };
   }
 }
 
-/**
- * 随机等待（安全模式：10-15秒，模拟真人思考时间）
- * @param {number} minMs 最小间隔（毫秒）
- * @param {number} maxMs 最大间隔（毫秒）
- */
 async function randomWait(minMs = 10000, maxMs = 15000) {
   const wait = minMs + Math.floor(Math.random() * (maxMs - minMs));
   await new Promise(r => setTimeout(r, wait));
@@ -58,5 +72,7 @@ async function randomWait(minMs = 10000, maxMs = 15000) {
 
 module.exports = {
   greetCandidate,
-  randomWait
+  randomWait,
+  isRiskCode,
+  RISK_CODES
 };
