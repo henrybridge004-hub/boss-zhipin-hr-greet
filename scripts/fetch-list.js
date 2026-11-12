@@ -4,10 +4,9 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { fetchRecommendList, parseCandidate } = require('../core/fetch-list');
+const { fetchRecommendList, parseCandidate, toGreetSnapshot } = require('../core/fetch-list');
 const { randomWait } = require('../core/greet');
 
-// 解析参数
 const args = process.argv.slice(2);
 function getArg(name, def) {
   const idx = args.indexOf('--' + name);
@@ -22,11 +21,9 @@ if (!jobName) {
   process.exit(1);
 }
 
-// 读取岗位配置
 const configPath = path.join(__dirname, '..', 'config', 'jobs', `${jobName}.json`);
 if (!fs.existsSync(configPath)) {
   console.error(`找不到岗位配置：${configPath}`);
-  console.error('请先在 config/jobs/ 下创建你的岗位配置文件');
   process.exit(1);
 }
 
@@ -34,7 +31,8 @@ const jobConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 (async () => {
   console.log(`=== 拉取候选人列表：${jobConfig.name} ===`);
-  console.log(`拉取页数：${pages}\n`);
+  console.log(`拉取页数：${pages}`);
+  console.log(`安全模式：每页间隔5-10秒随机\n`);
   
   const allCandidates = [];
   
@@ -54,9 +52,8 @@ const jobConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       
       console.log(` ${list.length} 人`);
       
-      // 间隔3-5秒
       if (i < pages) {
-        await randomWait(3000, 5000);
+        await randomWait(5000, 10000);
       }
       
     } catch (e) {
@@ -65,7 +62,6 @@ const jobConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     }
   }
   
-  // 去重
   const seen = new Set();
   const unique = allCandidates.filter(c => {
     const key = c.name + c.edus[0]?.school;
@@ -74,15 +70,27 @@ const jobConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     return true;
   });
   
-  // 保存
   const outDir = path.join(__dirname, '..', 'output');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
   
   const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-  const outPath = path.join(outDir, `候选人_${jobName}_${ts}.json`);
-  fs.writeFileSync(outPath, JSON.stringify(unique, null, 2), 'utf8');
+  
+  const fullPath = path.join(outDir, `候选人_${jobName}_${ts}.json`);
+  fs.writeFileSync(fullPath, JSON.stringify(unique, null, 2), 'utf8');
+  
+  const snapshot = {
+    createdAt: new Date().toISOString(),
+    jobName: jobConfig.name,
+    jobId: jobConfig.jobId,
+    count: unique.length,
+    candidates: toGreetSnapshot(unique)
+  };
+  const snapshotPath = path.join(outDir, `快照_${jobName}_latest.json`);
+  fs.writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2), 'utf8');
   
   console.log(`\n=== 完成 ===`);
   console.log(`共 ${unique.length} 位候选人（去重后）`);
-  console.log(`已保存：${outPath}`);
+  console.log(`完整数据：${fullPath}`);
+  console.log(`打招呼快照：${snapshotPath}`);
+  console.log(`\n提示：打招呼时直接用快照，不用重新拉列表`);
 })();

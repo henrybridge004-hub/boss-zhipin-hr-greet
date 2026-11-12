@@ -3,15 +3,7 @@
  */
 const { evalOnPage } = require('./cdp');
 
-/**
- * 拉取某岗位的推荐牛人列表
- * @param {string} jobId 职位ID
- * @param {number} page 页码（从1开始）
- * @param {object} extraParams 额外筛选参数（可选）
- * @returns {Promise<Array>} 候选人列表
- */
 async function fetchRecommendList(jobId, page = 1, extraParams = {}) {
-  // 拼接查询参数
   const params = new URLSearchParams({
     jobId,
     page,
@@ -28,19 +20,15 @@ async function fetchRecommendList(jobId, page = 1, extraParams = {}) {
   const data = JSON.parse(result);
   
   if (data.code !== 0) {
-    throw new Error(`拉取失败：${data.message || '未知错误'}`);
+    throw new Error(`拉取失败：${data.message || '未知错误'}（code: ${data.code}）`);
   }
   
   return data.zpData?.geekList || [];
 }
 
-/**
- * 解析单个候选人的简历信息
- */
 function parseCandidate(geek) {
   const card = geek.geekCard || {};
   
-  // 教育经历
   const eduList = card.geekEdus || [];
   const edus = eduList.map(e => ({
     school: e.school || '',
@@ -50,7 +38,6 @@ function parseCandidate(geek) {
     endDate: e.endDate || ''
   }));
   
-  // 工作经历
   const workList = card.geekWorks || [];
   const works = workList.map(w => ({
     company: w.company || '',
@@ -72,7 +59,6 @@ function parseCandidate(geek) {
     desc: card.geekDesc?.content || '',
     edus,
     works,
-    // 打招呼需要的ID
     encryptGeekId: card.encryptGeekId || '',
     encryptJobId: card.encryptJobId || '',
     expectId: card.expectId || '',
@@ -81,7 +67,25 @@ function parseCandidate(geek) {
   };
 }
 
+function toGreetSnapshot(candidates) {
+  return candidates.map(c => ({
+    name: c.name,
+    age: c.age,
+    workYear: c.workYear,
+    expectPosition: c.expectPosition,
+    encryptGeekId: c.encryptGeekId,
+    encryptJobId: c.encryptJobId,
+    expectId: c.expectId,
+    lid: c.lid,
+    securityId: c.securityId,
+    desc: (c.desc || '').slice(0, 200),
+    edus: c.edus,
+    works: c.works
+  }));
+}
+
 module.exports = {
   fetchRecommendList,
-  parseCandidate
+  parseCandidate,
+  toGreetSnapshot
 };
