@@ -22,6 +22,11 @@
   
   "notes": "在这里写这个岗位的筛选标准说明",
   
+  "riskControl": {
+    "hasRiskHistory": false,
+    "dailyLimit": 150
+  },
+  
   "progress": {
     "greeted": 0,
     "replied": 0,
