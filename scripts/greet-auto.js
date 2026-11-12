@@ -10,6 +10,10 @@ const path = require('path');
 const { fetchRecommendList, parseCandidate } = require('../core/fetch-list');
 const { greetCandidate, randomWait, isRiskCode } = require('../core/greet');
 
+// 每日打招呼上限（安全模式）
+const DAILY_LIMIT = 150;
+
+// 解析参数
 const args = process.argv.slice(2);
 function getArg(name, def) {
   const idx = args.indexOf('--' + name);
@@ -20,15 +24,16 @@ function hasArg(name) {
 }
 
 const jobName = getArg('job', '');
-const target = parseInt(getArg('count', '5'));
-const useSnapshot = hasArg('snapshot');
-const dryRun = hasArg('dry-run');
+const target = parseInt(getArg('count', '5')); // 默认每次5个（安全模式）
+const useSnapshot = hasArg('snapshot');        // 从快照读名单
+const dryRun = hasArg('dry-run');             // 只列不打
 
 if (!jobName) {
   console.error('请指定岗位名：node scripts/greet-auto.js --job 你的岗位名 --count 5');
   process.exit(1);
 }
 
+// 读取岗位配置
 const configPath = path.join(__dirname, '..', 'config', 'jobs', `${jobName}.json`);
 if (!fs.existsSync(configPath)) {
   console.error(`找不到岗位配置：${configPath}`);
@@ -70,6 +75,25 @@ function logToCsv(entry) {
   fs.appendFileSync(logPath, (isNew ? header : '') + line + '\n', 'utf8');
 }
 
+function countTodayGreeted() {
+  const logPath = path.join(__dirname, '..', 'output', '打招呼日志.csv');
+  if (!fs.existsSync(logPath)) return 0;
+  
+  const today = new Date().toISOString().slice(0, 10);
+  const content = fs.readFileSync(logPath, 'utf8');
+  const lines = content.split('\n').filter(Boolean);
+  
+  let count = 0;
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes(today)) {
+      const cols = line.split(',');
+      if (cols[4] === '"true"') count++;
+    }
+  }
+  return count;
+}
+
 function loadSnapshot(jobName) {
   const snapshotPath = path.join(__dirname, '..', 'output', `快照_${jobName}_latest.json`);
   if (!fs.existsSync(snapshotPath)) {
@@ -99,6 +123,37 @@ function loadSnapshot(jobName) {
   console.log(`目标：${target} 人`);
   console.log(`模式：${dryRun ? 'DRY-RUN（只列不打）' : '真实打招呼'}`);
   console.log(`名单来源：${useSnapshot ? '快照文件' : '实时拉取列表'}\n`);
+  
+  // ===== 安全检查1：有前科账号 =====
+  if (jobConfig.hasRiskHistory && !dryRun) {
+    console.log(`⚠️  警告：这个账号标记为"有前科账号"（曾被封过）`);
+    console.log(`   强烈建议只用dry-run模式，不要真实打招呼`);
+    console.log(`   如果确认要继续，请加 --force 参数\n`);
+    
+    if (!hasArg('force')) {
+      console.log('已停止。如果确认要继续，请加 --force 参数');
+      process.exit(0);
+    }
+    console.log('已强制继续，请小心操作...\n');
+  }
+  
+  // ===== 安全检查2：每日总量控制 =====
+  if (!dryRun) {
+    const todayCount = countTodayGreeted();
+    console.log(`今日已打招呼：${todayCount} / ${DAILY_LIMIT}`);
+    
+    if (todayCount >= DAILY_LIMIT) {
+      console.log(`\n⚠️  今日已达上限（${DAILY_LIMIT}个），请明天再打`);
+      process.exit(0);
+    }
+    
+    const remaining = DAILY_LIMIT - todayCount;
+    if (target > remaining) {
+      console.log(`⚠️  今日剩余额度只有 ${remaining} 个，将只打 ${remaining} 个`);
+      target = remaining;
+      console.log('');
+    }
+  }
   
   let candidates = [];
   
@@ -170,6 +225,11 @@ function loadSnapshot(jobName) {
       console.log(`  ✗ 风控错误：${result.message}（code: ${result.code}）`);
       console.log(`  ⚠️  检测到风控信号，停止后续打招呼`);
       console.log(`  请到浏览器里检查账号状态，确认没问题再继续`);
+      stoppedByRisk = true;
+      break;
+    } else if (result.code === 1001 || result.code === 1002) {
+      console.log(`  ✗ 登录可能已过期：${result.message}（code: ${result.code}）`);
+      console.log(`  ⚠️  请到浏览器里检查是否需要重新登录`);
       stoppedByRisk = true;
       break;
     } else {
